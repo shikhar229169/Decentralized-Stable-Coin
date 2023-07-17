@@ -144,7 +144,10 @@ contract DSCEngine is ReentrancyGuard {
     */
     function redeemCollateral(address token, uint256 amount) public moreThanZero(amount) isAllowedToken(token) nonReentrant {
         _redeemCollateral(token, amount, msg.sender, msg.sender);
-        _revertIfHealthFactorIsBroken(msg.sender);
+        
+        if (s_dscMinted[msg.sender] != 0) {
+            _revertIfHealthFactorIsBroken(msg.sender);
+        }
     }
 
     /**@param amount The amount of DSC to mint
