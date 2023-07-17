@@ -6,6 +6,7 @@ import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {OracleLib} from "./libraries/OracleLib.sol";
 
 /**@title DSCEngine
  * @author Shikhar Agarwal
@@ -40,6 +41,11 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__healthFactorIsNotBroken();
     error DSCEngine__healthFactorNotImproved();
     error DSCEngine__noDscMintedCantCalculateHealthFactor();
+
+    //////////
+    // Type //
+    //////////
+    using OracleLib for AggregatorV3Interface;
 
     /////////////////////// 
     //  State Variables  //
@@ -285,7 +291,7 @@ contract DSCEngine is ReentrancyGuard {
     function getUsdValue(address token, uint256 amount) public isAllowedToken(token) view returns (uint256) {
         address priceFeeds = s_priceFeeds[token];
 
-        (, int256 price,,,) = AggregatorV3Interface(priceFeeds).latestRoundData();
+        (, int256 price,,,) = AggregatorV3Interface(priceFeeds).stalePriceCheck();
 
         uint8 addtionalDecimal = MAX_DECIMALS - AggregatorV3Interface(priceFeeds).decimals();
         uint256 additionalFeedPrecision = 10 ** uint256(addtionalDecimal);
@@ -294,7 +300,7 @@ contract DSCEngine is ReentrancyGuard {
 
     function getTokenAmountFromUSD(address token, uint256 usdAmount) public isAllowedToken(token) view returns (uint256 tokenAmount) {
         AggregatorV3Interface priceFeeds = AggregatorV3Interface(s_priceFeeds[token]);
-        (, int256 price, , ,) = priceFeeds.latestRoundData();
+        (, int256 price, , ,) = priceFeeds.stalePriceCheck();
         uint8 additonalDecimal = MAX_DECIMALS - priceFeeds.decimals();
         uint256 additionalFeedPrecision = 10 ** uint256(additonalDecimal);
         tokenAmount = (usdAmount * PRECISION) / (uint256(price) * additionalFeedPrecision);
@@ -307,7 +313,11 @@ contract DSCEngine is ReentrancyGuard {
         return s_collateralTokens[idx];
     }
 
-    function getPriceFeedsAddress(address token) external isAllowedToken(token) view returns (address) {
+    function getCollateralTokens() external view returns (address[] memory) {
+        return s_collateralTokens;
+    }
+
+    function getCollateralTokenPriceFeedAddress(address token) external isAllowedToken(token) view returns (address) {
         return s_priceFeeds[token];
     }
 
